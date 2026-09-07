@@ -1,2 +1,9 @@
-User-Agent: *
-Disallow:
+User-agent: *
+Allow: /
+Allow: /shop
+Allow: /product
+Allow: /search
+Disallow: /admin-secret
+Disallow: /api/admin
+
+Sitemap: /sitemap.xml
