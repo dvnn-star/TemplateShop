@@ -107,6 +107,9 @@ function seedData() {
     { name: 'Celana & Chino', slug: 'celana-chino' },
     { name: 'Jaket & Hoodie', slug: 'jaket-hoodie' },
     { name: 'Aksesoris & Topi', slug: 'aksesoris-topi' },
+    { name: 'Sepatu & Sneakers', slug: 'sepatu-sneakers' },
+    { name: 'Tas & Backpack', slug: 'tas-backpack' },
+    { name: 'Sweater & Cardigan', slug: 'sweater-cardigan' },
   ]
 
   const insertCategory = db.prepare('INSERT INTO categories (name, slug) VALUES (?, ?)')
@@ -126,8 +129,8 @@ function seedData() {
       categorySlug: 'kaos-t-shirt',
       status: 'published',
       images: [
-        'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80',
-        'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=800&q=80'
+        '/images/products/kaos-oversize-heavy-cotton-1.jpg',
+        '/images/products/kaos-oversize-heavy-cotton-2.jpg'
       ],
       variants: [
         { color: 'Hitam', size: 'M', stock: 25, sku: 'TS-OVR-BLK-M' },
@@ -223,6 +226,86 @@ function seedData() {
         { color: 'Biru Muda', size: 'L', stock: 14, sku: 'OXF-BLU-L' },
         { color: 'Putih', size: 'M', stock: 12, sku: 'OXF-WHT-M' },
         { color: 'Putih', size: 'L', stock: 15, sku: 'OXF-WHT-L' },
+      ]
+    },
+    {
+      name: 'Sneakers Classic Canvas Low-Top',
+      slug: 'sneakers-classic-canvas-low',
+      description: 'Sneakers bergaya vintage klasik berbahan premium 12oz canvas dengan sol vulcanized rubber anti-slip dan insole empuk untuk kenyamanan melangkah seharian.',
+      price: 289000,
+      categorySlug: 'sepatu-sneakers',
+      status: 'published',
+      images: [
+        '/images/products/sneakers-classic-canvas-1.jpg'
+      ],
+      variants: [
+        { color: 'Hitam-Putih', size: '40', stock: 12, sku: 'SNK-BW-40' },
+        { color: 'Hitam-Putih', size: '41', stock: 18, sku: 'SNK-BW-41' },
+        { color: 'Hitam-Putih', size: '42', stock: 15, sku: 'SNK-BW-42' },
+        { color: 'Hitam-Putih', size: '43', stock: 8, sku: 'SNK-BW-43' }
+      ]
+    },
+    {
+      name: 'Tas Ransel Roll-Top Waterproof',
+      slug: 'tas-ransel-roll-top-waterproof',
+      description: 'Tas ransel multifungsi model roll-top dengan bahan Cordura bimodal waterproof dan kompartemen laptop 15.6 inci dengan busa pelindung tebal.',
+      price: 265000,
+      categorySlug: 'tas-backpack',
+      status: 'published',
+      images: [
+        '/images/products/tas-ransel-rolltop-1.jpg'
+      ],
+      variants: [
+        { color: 'Matte Black', size: 'All Size', stock: 20, sku: 'BAG-BLK-AS' },
+        { color: 'Olive Green', size: 'All Size', stock: 12, sku: 'BAG-OLV-AS' }
+      ]
+    },
+    {
+      name: 'Cardigan Knit Oversize Cable',
+      slug: 'cardigan-knit-oversize-cable',
+      description: 'Cardigan rajut motif cable knit berpotongan santai oversized. Menggunakan benang akrilik katun yang lembut di kulit, tidak gatal, dan memberikan kehangatan optimal.',
+      price: 229000,
+      categorySlug: 'sweater-cardigan',
+      status: 'published',
+      images: [
+        '/images/products/cardigan-knit-cable-1.jpg'
+      ],
+      variants: [
+        { color: 'Beige Cream', size: 'M', stock: 10, sku: 'CRD-CRM-M' },
+        { color: 'Beige Cream', size: 'L', stock: 14, sku: 'CRD-CRM-L' },
+        { color: 'Charcoal Grey', size: 'L', stock: 8, sku: 'CRD-CHR-L' }
+      ]
+    },
+    {
+      name: 'Celana Cargo Straight Fit Tactical',
+      slug: 'celana-cargo-straight-fit-tactical',
+      description: 'Celana cargo bergaya tactical modern berbahan katun twill ripstop yang kuat, tahan gesekan, serta dilengkapi 6 kantong fungsional.',
+      price: 235000,
+      categorySlug: 'celana-chino',
+      status: 'published',
+      images: [
+        '/images/products/celana-cargo-tactical-1.jpg'
+      ],
+      variants: [
+        { color: 'Army Olive', size: '30', stock: 12, sku: 'CRG-OLV-30' },
+        { color: 'Army Olive', size: '32', stock: 16, sku: 'CRG-OLV-32' },
+        { color: 'Hitam', size: '32', stock: 15, sku: 'CRG-BLK-32' }
+      ]
+    },
+    {
+      name: 'Kaos Vintage Graphic Heavyweight',
+      slug: 'kaos-vintage-graphic-heavyweight',
+      description: 'Kaos graphic streetwear vintage dengan sentuhan wash effect dan sablon discharge berkualitas tinggi yang menyatu dengan serat kain katun combed 20s.',
+      price: 139000,
+      categorySlug: 'kaos-t-shirt',
+      status: 'published',
+      images: [
+        '/images/products/kaos-vintage-graphic-1.jpg'
+      ],
+      variants: [
+        { color: 'Washed Black', size: 'M', stock: 18, sku: 'VNT-BLK-M' },
+        { color: 'Washed Black', size: 'L', stock: 22, sku: 'VNT-BLK-L' },
+        { color: 'Washed Black', size: 'XL', stock: 14, sku: 'VNT-BLK-XL' }
       ]
     }
   ]

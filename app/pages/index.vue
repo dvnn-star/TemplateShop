@@ -72,8 +72,8 @@ useHead({
           <div class="relative hidden lg:block">
             <div class="relative mx-auto max-w-md aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl border-4 border-white/10">
               <img
-                src="https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=1000&q=80"
-                alt="ModaStore Showcase"
+                src="/images/products/kaos-oversize-heavy-cotton-1.jpg"
+                alt="ModaStore Showcase - Kaos Oversize Heavy Cotton"
                 class="w-full h-full object-cover"
               />
               <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-8">
@@ -106,7 +106,7 @@ useHead({
         </NuxtLink>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         <NuxtLink
           v-for="cat in categories"
           :key="cat.id"
