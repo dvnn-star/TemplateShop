@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Lock, Mail, Eye, EyeOff, ShieldCheck, ArrowRight } from 'lucide-vue-next'
+import { Lock, Mail, Eye, EyeOff, ArrowRight } from 'lucide-vue-next'
 import { useAdminAuth } from '~/composables/useAdminAuth'
 import { useToast } from '~/composables/useToast'
 
@@ -36,11 +36,6 @@ const handleLogin = async () => {
   } finally {
     isLoading.value = false
   }
-}
-
-const fillCredentials = () => {
-  email.value = 'admin'
-  password.value = 'admin123'
 }
 
 useHead({
@@ -84,7 +79,7 @@ useHead({
               type="text"
               required
               class="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
-              placeholder="admin atau admin@shop.com"
+              placeholder="Masukkan email atau username"
             />
             <Mail class="w-4 h-4 text-neutral-500 absolute left-3.5 top-3.5" />
           </div>
@@ -100,7 +95,7 @@ useHead({
               :type="showPassword ? 'text' : 'password'"
               required
               class="w-full pl-10 pr-11 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
-              placeholder="admin123"
+              placeholder="••••••••"
             />
             <Lock class="w-4 h-4 text-neutral-500 absolute left-3.5 top-3.5" />
             <button
@@ -128,21 +123,14 @@ useHead({
         </button>
       </form>
 
-      <!-- Default credentials hint with quick fill button -->
-      <div class="mt-8 pt-6 border-t border-neutral-800/80 text-center space-y-3">
-        <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-800 text-[11px] text-neutral-400">
-          <ShieldCheck class="w-3.5 h-3.5 text-emerald-400" />
-          <span>Email: <b>admin</b> &bull; Password: <b>admin123</b></span>
-        </div>
-        <div>
-          <button
-            type="button"
-            @click="fillCredentials"
-            class="text-xs text-emerald-400 hover:text-emerald-300 underline font-medium transition cursor-pointer"
-          >
-            Isi otomatis kredensial demo (admin / admin123)
-          </button>
-        </div>
+      <!-- Back to storefront link -->
+      <div class="mt-8 pt-6 border-t border-neutral-800/80 text-center">
+        <NuxtLink
+          to="/"
+          class="text-xs text-neutral-400 hover:text-white transition inline-flex items-center gap-1.5 font-medium"
+        >
+          <span>&larr; Kembali ke Halaman Toko</span>
+        </NuxtLink>
       </div>
     </div>
   </div>
