@@ -1,6 +1,6 @@
-import { db } from '~/server/utils/db'
+import { db } from '~~/server/utils/db'
 import bcrypt from 'bcryptjs'
-import { createAdminToken } from '~/server/utils/auth'
+import { createAdminToken } from '~~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)

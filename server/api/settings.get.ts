@@ -1,4 +1,4 @@
-import { db } from '~/server/utils/db'
+import { db } from '~~/server/utils/db'
 
 export default defineEventHandler((event) => {
   const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[]

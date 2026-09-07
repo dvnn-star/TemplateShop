@@ -1,4 +1,4 @@
-import { db } from '~/server/utils/db'
+import { db } from '~~/server/utils/db'
 import bcrypt from 'bcryptjs'
 
 export default defineEventHandler(async (event) => {

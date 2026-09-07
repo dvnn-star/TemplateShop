@@ -1,4 +1,4 @@
-import { db } from '~/server/utils/db'
+import { db } from '~~/server/utils/db'
 
 export default defineEventHandler((event) => {
   const query = getQuery(event)
