@@ -13,6 +13,7 @@ import {
 } from 'lucide-vue-next'
 import { useToast } from '~/composables/useToast'
 import { useAdminAuth } from '~/composables/useAdminAuth'
+import { useAdminRealtime } from '~/composables/useAdminRealtime'
 
 interface ProductVariantForm {
   id?: number
@@ -40,6 +41,7 @@ const props = defineProps<{
 }>()
 
 const { adminBase } = useAdminAuth()
+const { refreshStats } = useAdminRealtime()
 const { showToast } = useToast()
 const router = useRouter()
 
@@ -186,6 +188,7 @@ const handleSubmit = async () => {
       showToast('Produk baru berhasil disimpan!', 'success')
     }
 
+    await refreshStats()
     router.push(`${adminBase}/products`)
   } catch (err: any) {
     showToast(err.data?.statusMessage || err.message || 'Gagal menyimpan produk', 'error')

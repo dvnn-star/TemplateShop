@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import {
   FolderTree,
   Plus,
@@ -8,9 +8,11 @@ import {
   Search,
   X,
   Check,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-vue-next'
 import { useToast } from '~/composables/useToast'
+import { useAdminRealtime } from '~/composables/useAdminRealtime'
 
 definePageMeta({
   layout: 'admin',
@@ -18,12 +20,19 @@ definePageMeta({
 })
 
 const { showToast } = useToast()
+const { stats, refreshStats } = useAdminRealtime()
 
-const { data: categories, refresh } = await useFetch('/api/admin/categories')
+const { data: categories, refresh, status } = await useFetch('/api/admin/categories', {
+  getCachedData: () => undefined,
+  headers: {
+    'Cache-Control': 'no-cache, no-store, must-revalidate'
+  }
+})
 
 const searchQuery = ref('')
 const isModalOpen = ref(false)
 const isSubmitting = ref(false)
+const isManualRefreshing = ref(false)
 const editingId = ref<number | null>(null)
 const formName = ref('')
 const formSlug = ref('')
@@ -31,6 +40,31 @@ const isSlugManuallyEdited = ref(false)
 
 const deleteConfirmId = ref<number | null>(null)
 const deleteCategoryName = ref('')
+
+const handleManualRefresh = async () => {
+  isManualRefreshing.value = true
+  try {
+    await Promise.all([refresh(), refreshStats()])
+  } finally {
+    isManualRefreshing.value = false
+  }
+}
+
+// Auto sync interval every 4 seconds
+let pollTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  handleManualRefresh()
+  pollTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      refresh()
+      refreshStats()
+    }
+  }, 4000)
+})
+
+onBeforeUnmount(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
 
 const filteredCategories = computed(() => {
   if (!categories.value) return []
@@ -75,14 +109,12 @@ const handleSaveCategory = async () => {
   isSubmitting.value = true
   try {
     if (editingId.value) {
-      // Edit
       await $fetch(`/api/admin/categories/${editingId.value}`, {
         method: 'PUT',
         body: { name: formName.value, slug: formSlug.value }
       })
       showToast('Kategori berhasil diperbarui!', 'success')
     } else {
-      // Create
       await $fetch('/api/admin/categories', {
         method: 'POST',
         body: { name: formName.value, slug: formSlug.value }
@@ -90,7 +122,7 @@ const handleSaveCategory = async () => {
       showToast('Kategori baru berhasil ditambahkan!', 'success')
     }
     isModalOpen.value = false
-    refresh()
+    await Promise.all([refresh(), refreshStats()])
   } catch (err: any) {
     showToast(err.data?.statusMessage || err.message || 'Gagal menyimpan kategori', 'error')
   } finally {
@@ -111,7 +143,7 @@ const handleDelete = async () => {
     })
     showToast('Kategori berhasil dihapus.', 'success')
     deleteConfirmId.value = null
-    refresh()
+    await Promise.all([refresh(), refreshStats()])
   } catch (err: any) {
     showToast(err.data?.statusMessage || err.message || 'Gagal menghapus kategori', 'error')
   }
@@ -127,19 +159,36 @@ useHead({
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-200">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">Kelola Kategori</h1>
-        <p class="text-neutral-500 text-sm mt-1">
-          Daftar seluruh kategori produk yang digunakan untuk navigasi dan katalog toko.
+        <div class="flex items-center gap-2 mb-1">
+          <h1 class="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">Kelola Kategori</h1>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-neutral-900 text-white">
+            <span>{{ categories?.length || 0 }} Kategori</span>
+          </span>
+        </div>
+        <p class="text-neutral-500 text-sm">
+          Daftar seluruh kategori produk beserta jumlah produk terkait yang diperbarui secara real-time.
         </p>
       </div>
 
-      <button
-        @click="openCreateModal"
-        class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition self-start sm:self-auto cursor-pointer"
-      >
-        <Plus class="w-4 h-4" />
-        <span>Tambah Kategori</span>
-      </button>
+      <div class="flex items-center gap-3">
+        <button
+          @click="handleManualRefresh"
+          :disabled="isManualRefreshing"
+          class="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white border border-neutral-200 hover:border-neutral-300 text-neutral-700 rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
+          title="Segarkan data sekarang"
+        >
+          <RefreshCw class="w-3.5 h-3.5 text-neutral-500" :class="{ 'animate-spin': isManualRefreshing }" />
+          <span>{{ isManualRefreshing ? 'Menyinkronkan...' : 'Segarkan Data' }}</span>
+        </button>
+
+        <button
+          @click="openCreateModal"
+          class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition self-start sm:self-auto cursor-pointer"
+        >
+          <Plus class="w-4 h-4" />
+          <span>Tambah Kategori</span>
+        </button>
+      </div>
     </div>
 
     <!-- Search & List Table -->
@@ -155,7 +204,7 @@ useHead({
           <Search class="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
         </div>
         <span class="text-xs text-neutral-500 font-medium">
-          {{ filteredCategories.length }} kategori terdaftar
+          {{ filteredCategories.length }} kategori ditampilkan
         </span>
       </div>
 
@@ -165,7 +214,7 @@ useHead({
             <tr class="text-[11px] uppercase tracking-wider text-neutral-400 border-b border-neutral-100">
               <th class="pb-3 font-bold">Nama Kategori</th>
               <th class="pb-3 font-bold">Slug URL</th>
-              <th class="pb-3 font-bold">Jumlah Produk</th>
+              <th class="pb-3 font-bold">Jumlah Produk Terkait</th>
               <th class="pb-3 font-bold text-right">Aksi</th>
             </tr>
           </thead>
@@ -182,7 +231,10 @@ useHead({
                 /shop/{{ cat.slug }}
               </td>
               <td class="py-4">
-                <span class="px-2.5 py-1 bg-neutral-100 text-neutral-700 rounded-full text-xs font-bold">
+                <span
+                  class="px-2.5 py-1 rounded-full text-xs font-bold inline-block"
+                  :class="cat.productCount > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-100 text-neutral-500'"
+                >
                   {{ cat.productCount || 0 }} produk
                 </span>
               </td>
@@ -197,7 +249,7 @@ useHead({
                   </button>
                   <button
                     @click="confirmDelete(cat)"
-                    class="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                    class="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                     title="Hapus Kategori"
                   >
                     <Trash2 class="w-4 h-4" />

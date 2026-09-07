@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import {
   Plus,
   Search,
@@ -9,11 +9,14 @@ import {
   Eye,
   EyeOff,
   Filter,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  Boxes
 } from 'lucide-vue-next'
 import { formatRupiah } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
 import { useAdminAuth } from '~/composables/useAdminAuth'
+import { useAdminRealtime } from '~/composables/useAdminRealtime'
 
 definePageMeta({
   layout: 'admin',
@@ -21,18 +24,22 @@ definePageMeta({
 })
 
 const { adminBase } = useAdminAuth()
+const { stats, refreshStats } = useAdminRealtime()
 const { showToast } = useToast()
 
 const searchQuery = ref('')
 const selectedStatus = ref('all')
 const selectedCategory = ref('')
 const currentPage = ref(1)
+const isManualRefreshing = ref(false)
 
 const deleteConfirmId = ref<number | null>(null)
 const deleteProductName = ref('')
 
 // Fetch categories for filter dropdown
-const { data: categories } = await useFetch('/api/admin/categories')
+const { data: categories, refresh: refreshCategories } = await useFetch('/api/admin/categories', {
+  getCachedData: () => undefined
+})
 
 // Query params computed
 const queryParams = computed(() => {
@@ -52,9 +59,39 @@ const queryParams = computed(() => {
   return params
 })
 
-const { data: response, refresh } = await useFetch('/api/admin/products', {
+const { data: response, refresh, status: fetchStatus } = await useFetch('/api/admin/products', {
   query: queryParams,
-  watch: [queryParams]
+  watch: [queryParams],
+  getCachedData: () => undefined,
+  headers: {
+    'Cache-Control': 'no-cache, no-store, must-revalidate'
+  }
+})
+
+const handleManualRefresh = async () => {
+  isManualRefreshing.value = true
+  try {
+    await Promise.all([refresh(), refreshCategories(), refreshStats()])
+  } finally {
+    isManualRefreshing.value = false
+  }
+}
+
+// Auto sync interval every 4 seconds
+let pollTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  handleManualRefresh()
+  pollTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      refresh()
+      refreshCategories()
+      refreshStats()
+    }
+  }, 4000)
+})
+
+onBeforeUnmount(() => {
+  if (pollTimer) clearInterval(pollTimer)
 })
 
 // Toggle publish/unpublish status (FR-17)
@@ -67,9 +104,10 @@ const toggleStatus = async (product: any) => {
     })
     product.status = nextStatus
     showToast(
-      `Status produk berhasil diubah menjadi ${nextStatus === 'published' ? 'Tayang (Published)' : 'Draf (Draft)'}`,
+      `Status produk diubah ke ${nextStatus === 'published' ? 'Tayang (Published)' : 'Draf (Draft)'}`,
       'success'
     )
+    refreshStats()
   } catch (err: any) {
     showToast(err.data?.statusMessage || err.message || 'Gagal mengubah status produk', 'error')
   }
@@ -89,7 +127,7 @@ const handleDelete = async () => {
     })
     showToast('Produk berhasil dihapus dari sistem.', 'success')
     deleteConfirmId.value = null
-    refresh()
+    await Promise.all([refresh(), refreshStats()])
   } catch (err: any) {
     showToast(err.data?.statusMessage || err.message || 'Gagal menghapus produk', 'error')
   }
@@ -105,19 +143,79 @@ useHead({
     <!-- Header Title & Create Button -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-200">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">Katalog Produk</h1>
-        <p class="text-neutral-500 text-sm mt-1">
-          Kelola informasi barang, upload foto, atur varian warna/ukuran, dan stok unit.
+        <div class="flex items-center gap-2 mb-1">
+          <h1 class="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">Katalog Produk</h1>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-neutral-900 text-white">
+            <span>{{ response?.pagination?.total ?? stats.totalProducts }} Total Produk</span>
+          </span>
+        </div>
+        <p class="text-neutral-500 text-sm">
+          Kelola informasi barang, upload foto, atur varian warna/ukuran, dan stok unit secara real-time.
         </p>
       </div>
 
-      <NuxtLink
-        :to="`${adminBase}/products/new`"
-        class="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition self-start sm:self-auto"
-      >
-        <Plus class="w-4 h-4" />
-        <span>Tambah Produk Baru</span>
-      </NuxtLink>
+      <div class="flex items-center gap-3">
+        <button
+          @click="handleManualRefresh"
+          :disabled="isManualRefreshing"
+          class="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white border border-neutral-200 hover:border-neutral-300 text-neutral-700 rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
+          title="Segarkan data produk sekarang"
+        >
+          <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isManualRefreshing }" />
+          <span>{{ isManualRefreshing ? 'Menyinkronkan...' : 'Segarkan Data' }}</span>
+        </button>
+
+        <NuxtLink
+          :to="`${adminBase}/products/new`"
+          class="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition self-start sm:self-auto cursor-pointer"
+        >
+          <Plus class="w-4 h-4" />
+          <span>Tambah Produk Baru</span>
+        </NuxtLink>
+      </div>
+    </div>
+
+    <!-- Real-time Stats Quick Bar -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-[11px] text-neutral-400 font-bold uppercase">Total Terdaftar</span>
+          <div class="text-xl font-black text-neutral-900">{{ stats.totalProducts }}</div>
+        </div>
+        <div class="w-9 h-9 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 font-bold text-xs">
+          All
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-[11px] text-neutral-400 font-bold uppercase">Tayang (Published)</span>
+          <div class="text-xl font-black text-emerald-600">{{ stats.publishedProducts }}</div>
+        </div>
+        <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+          <Eye class="w-4 h-4" />
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-[11px] text-neutral-400 font-bold uppercase">Draf (Draft)</span>
+          <div class="text-xl font-black text-neutral-700">{{ stats.draftProducts }}</div>
+        </div>
+        <div class="w-9 h-9 rounded-xl bg-neutral-100 text-neutral-600 flex items-center justify-center font-bold text-xs">
+          <EyeOff class="w-4 h-4" />
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-[11px] text-neutral-400 font-bold uppercase">Total Stok Fisik</span>
+          <div class="text-xl font-black text-sky-600">{{ stats.totalStockUnits }}</div>
+        </div>
+        <div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold text-xs">
+          <Boxes class="w-4 h-4" />
+        </div>
+      </div>
     </div>
 
     <!-- Filters & Search Toolbar -->
@@ -140,9 +238,9 @@ useHead({
             v-model="selectedCategory"
             class="w-full px-3 py-2.5 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:border-neutral-900 bg-white"
           >
-            <option value="">Semua Kategori</option>
+            <option value="">Semua Kategori ({{ categories?.length || 0 }})</option>
             <option v-for="c in categories" :key="c.id" :value="c.id">
-              {{ c.name }}
+              {{ c.name }} ({{ c.productCount }} produk)
             </option>
           </select>
         </div>
@@ -154,9 +252,9 @@ useHead({
             class="w-full px-3 py-2.5 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:border-neutral-900 bg-white"
           >
             <option value="all">Semua Status Publikasi</option>
-            <option value="published">Tayang (Published)</option>
-            <option value="draft">Draf (Draft)</option>
-            <option value="archived">Arsip (Archived)</option>
+            <option value="published">Tayang ({{ stats.publishedProducts }})</option>
+            <option value="draft">Draf ({{ stats.draftProducts }})</option>
+            <option value="archived">Arsip ({{ stats.archivedProducts }})</option>
           </select>
         </div>
       </div>
@@ -189,7 +287,7 @@ useHead({
                     :alt="prod.name"
                     class="w-12 h-12 object-cover rounded-xl bg-neutral-100 border border-neutral-100 shrink-0"
                   />
-                  <div class="w-12 h-12 rounded-xl bg-neutral-100 shrink-0 flex items-center justify-center text-neutral-300" v-else>
+                  <div class="w-12 h-12 rounded-xl bg-neutral-100 shrink-0 flex items-center justify-center text-neutral-300 text-xs" v-else>
                     No Image
                   </div>
                   <div>
