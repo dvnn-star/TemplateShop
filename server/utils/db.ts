@@ -2,18 +2,105 @@ import Database from 'better-sqlite3'
 import bcrypt from 'bcryptjs'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 
-const dataDir = path.resolve(process.cwd(), '.data')
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true })
+function resolveDatabaseTarget() {
+  // 1. Explicit DATABASE_PATH env variable
+  if (process.env.DATABASE_PATH) {
+    const dbPath = process.env.DATABASE_PATH
+    const dbDir = path.dirname(dbPath)
+    if (!fs.existsSync(dbDir)) {
+      try {
+        fs.mkdirSync(dbDir, { recursive: true })
+      } catch (err) {
+        console.warn(`[Database] Could not create directory for DATABASE_PATH:`, err)
+      }
+    }
+    return { dbPath, isServerless: false }
+  }
+
+  // 2. Serverless detection (Netlify, AWS Lambda, Vercel, or read-only /var/task)
+  const isServerless = Boolean(
+    process.env.NETLIFY ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.LAMBDA_TASK_ROOT ||
+    process.env.VERCEL ||
+    (process.cwd() && process.cwd().startsWith('/var/task'))
+  )
+
+  if (isServerless) {
+    const tmpDataDir = path.join(os.tmpdir(), 'shop_data')
+    if (!fs.existsSync(tmpDataDir)) {
+      try {
+        fs.mkdirSync(tmpDataDir, { recursive: true })
+      } catch (err) {
+        console.warn('[Database] Failed to create tmpDataDir:', err)
+      }
+    }
+    const targetDbPath = path.join(tmpDataDir, 'shop.db')
+
+    // If pre-bundled shop.db exists in read-only task root, copy it over to /tmp
+    if (!fs.existsSync(targetDbPath)) {
+      const candidates = [
+        path.resolve(process.cwd(), '.data', 'shop.db'),
+        path.resolve(process.cwd(), 'shop.db'),
+        '/var/task/.data/shop.db',
+        '/var/task/shop.db'
+      ]
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          try {
+            fs.copyFileSync(candidate, targetDbPath)
+            console.log(`[Database] Seeded /tmp database from ${candidate}`)
+            break
+          } catch (e) {
+            console.warn(`[Database] Could not copy ${candidate}:`, e)
+          }
+        }
+      }
+    }
+
+    return { dbPath: targetDbPath, isServerless: true }
+  }
+
+  // 3. Local development or persistent server
+  try {
+    const localDir = path.resolve(process.cwd(), '.data')
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true })
+    }
+    fs.accessSync(localDir, fs.constants.W_OK)
+    return { dbPath: path.join(localDir, 'shop.db'), isServerless: false }
+  } catch (err) {
+    // If local directory is not writable, fallback to /tmp
+    console.warn('[Database] Local directory not writable, falling back to os.tmpdir():', err)
+    const fallbackDir = path.join(os.tmpdir(), 'shop_data')
+    if (!fs.existsSync(fallbackDir)) {
+      fs.mkdirSync(fallbackDir, { recursive: true })
+    }
+    return { dbPath: path.join(fallbackDir, 'shop.db'), isServerless: true }
+  }
 }
 
-const dbPath = path.join(dataDir, 'shop.db')
+const { dbPath, isServerless } = resolveDatabaseTarget()
 export const db = new Database(dbPath)
 
-// Enable foreign keys and WAL mode for better concurrency
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
+// Safely configure journal mode and foreign keys
+try {
+  if (isServerless) {
+    db.pragma('journal_mode = DELETE')
+  } else {
+    db.pragma('journal_mode = WAL')
+  }
+} catch (e) {
+  console.warn('[Database] Could not set journal_mode pragma:', e)
+}
+
+try {
+  db.pragma('foreign_keys = ON')
+} catch (e) {
+  console.warn('[Database] Could not set foreign_keys pragma:', e)
+}
 
 // Initialize tables as specified in PRD Section 18
 export function initDatabase() {
